@@ -84,7 +84,6 @@ app.post('/api/subscriptions', async (req, res) => {
 
 		res.json({ clientSecret });
 	} catch (e) {
-		console.log(e.message)
 		res.status(500).send(e.message);
 	}
 })
@@ -106,6 +105,52 @@ app.post('/api/create-payment-intent', async (req, res) => {
 		res.status(500).send(error.message);
 	}
 });
+
+// get customer subcriptions by email
+app.get('/api/customer-subscriptions', async (req, res) => {
+	const { email } = req.query; // Customer email
+
+	try {
+		const customers = await stripe.customers.list({ email })
+		const customer = customers?.data?.[0]
+
+		if (!customer?.id) {
+			res.status(404).send('No Customer Found');
+		} else {
+			const subscriptions = await stripe.subscriptions.list({ customer: customer.id, status: 'all' })
+			res.json({ subscriptions: subscriptions?.data || [] });
+		}
+	} catch (error) {
+		res.status(500).send(error.message);
+	}
+})
+
+// cancel subscription
+app.post('/api/subscriptions/cancel', async (req, res) => {
+	const { id } = req.body; // Subscription id
+
+	try {
+		const subscription = await stripe.subscriptions.update(id, { cancel_at_period_end: true })
+
+		res.json({ subscription })
+	} catch (error) {
+		console.error(error.message)
+		res.status(500).send(error.message);
+	}
+})
+
+// resume subscription
+app.post('/api/subscriptions/resume', async (req, res) => {
+	const { id } = req.body; // Subscription id
+
+	try {
+		const subscription = await stripe.subscriptions.update(id, { cancel_at_period_end: false })
+		res.json({ subscription })
+	} catch (error) {
+		console.error(error.message)
+		res.status(500).send(error.message);
+	}
+})
 
 // Paypal
 app.get('/api/subscription', async (req, res) => {
