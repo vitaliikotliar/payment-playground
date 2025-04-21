@@ -152,6 +152,32 @@ app.post('/api/subscriptions/resume', async (req, res) => {
 	}
 })
 
+// get user payment methods
+app.get('/api/user-payment', async (req, res) => {
+	const { email } = req.query;
+
+	if (!email) {
+		return res.status(400).send('Email is required')
+	}
+
+	try {
+		const customers = await stripe.customers.list({ email, limit: 1 })
+		const customer = customers?.data?.[0]
+
+		if (!customer) {
+			res.status(404).send('No Customer Found');
+		} else {
+			const paymentMethods = await stripe.paymentMethods.list({
+				customer: customer.id,
+				type: 'card'
+			})
+			res.json({ paymentMethods })
+		}
+	} catch (e) {
+		res.status(500).send(e.message);
+	}
+})
+
 // Paypal
 app.get('/api/subscription', async (req, res) => {
 	try {
