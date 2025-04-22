@@ -106,7 +106,7 @@ app.post('/api/create-payment-intent', async (req, res) => {
 	}
 });
 
-// get customer subcriptions by email
+// get customer subscriptions by email
 app.get('/api/customer-subscriptions', async (req, res) => {
 	const { email } = req.query; // Customer email
 
@@ -173,6 +173,23 @@ app.get('/api/user-payment', async (req, res) => {
 			})
 			res.json({ paymentMethods })
 		}
+	} catch (e) {
+		res.status(500).send(e.message);
+	}
+})
+
+// get user events (history)
+app.get('/api/history', async (req, res) => {
+	const { subscription_id } = req.query;
+
+	if (!subscription_id) {
+		return res.status(400).send('Subscription ID is required')
+	}
+
+	try {
+		const events = await stripe.events.list({ related_object: subscription_id, limit: 50 })
+
+		res.json({ events })
 	} catch (e) {
 		res.status(500).send(e.message);
 	}
