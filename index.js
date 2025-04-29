@@ -195,6 +195,28 @@ app.get('/api/history', async (req, res) => {
 	}
 })
 
+// get customer transactions
+app.get('/api/transactions', async (req, res) => {
+	const { email } = req.query; // Customer email
+
+	try {
+		const customers = await stripe.customers.list({ email })
+		const customer = customers?.data?.[0]
+
+		if (!customer?.id) {
+			res.status(404).send('No Customer Found');
+		} else {
+			const transactions = await stripe.charges.list({
+				customer: customer?.id,
+				limit: 10
+			})
+			res.json({ transactions: transactions?.data || [] });
+		}
+	} catch (error) {
+		res.status(500).send(error.message);
+	}
+})
+
 // Paypal
 app.get('/api/subscription', async (req, res) => {
 	try {
