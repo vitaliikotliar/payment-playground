@@ -117,7 +117,7 @@ app.get('/api/customer-subscriptions', async (req, res) => {
 		if (!customer?.id) {
 			res.status(404).send('No Customer Found');
 		} else {
-			const subscriptions = await stripe.subscriptions.list({ customer: customer.id, status: 'all' })
+			const subscriptions = await stripe.subscriptions.list({ customer: customer.id, limit: 1 })
 			res.json({ subscriptions: subscriptions?.data || [] });
 		}
 	} catch (error) {
@@ -178,6 +178,56 @@ app.get('/api/user-payment', async (req, res) => {
 	}
 })
 
+// set default payment method
+app.post('/api/set-default-payment', async (req, res) => {
+	const { subscription_id, card_id } = req.body;
+
+	if (!subscription_id || !card_id) {
+		return res.status(400).send('Subscription id and card is are required')
+	}
+
+	try {
+		const subscription = await stripe.subscriptions.update(subscription_id, {
+			default_payment_method: card_id
+		})
+
+		res.json({ subscription })
+	} catch (e) {
+		res.status(500).send(e.message);
+	}
+})
+
+// Attach payment method to a customer
+app.post('/api/attach-payment-method', async (req, res) => {
+	const { customerId = 'cus_SLwPgtQ2sonBJa', paymentMethodId } = req.body;
+
+	try {
+		const paymentMethod = await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
+		await stripe.customers.update(customerId, {
+			invoice_settings: {
+				default_payment_method: paymentMethodId,
+			},
+		});
+
+		res.status(200).json({ paymentMethod });
+	} catch (err) {
+		console.error(err);
+		res.status(500).json({ error: 'Failed to attach payment method' });
+	}
+})
+
+// Detach payment method
+app.post('/api/delete-card', async (req, res) => {
+	const { paymentMethodId } = req.body;
+
+	try {
+		const result = await stripe.paymentMethods.detach(paymentMethodId);
+		res.status(200).json(result);
+	} catch (err) {
+		res.status(500).json({ error: 'Failed to delete card' });
+	}
+});
+
 // get user events (history)
 app.get('/api/history', async (req, res) => {
 	const { subscription_id } = req.query;
@@ -225,7 +275,6 @@ app.get('/api/subscription', async (req, res) => {
 				'Authorization': `Bearer ${process.env.PAYPAL_TOKEN}`, // Replace with your PayPal access token
 			}
 		});
-		const links = response?.data?.links
 
 		res.status(200).send({subscription: response.data})
 	} catch (e) {
